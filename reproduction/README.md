@@ -18,18 +18,25 @@
 
 ### 1.2 复现环境
 
+本项目在 Windows 环境下完成开发和验证，主要运行环境如下：
+
 | 项目 | 配置 |
 |---|---|
 | 操作系统 | Windows |
-| 项目语言 | Python |
+| Python | 3.10 |
 | Python 环境管理 | Conda |
 | Conda 环境名称 | `kamae-repro` |
-| 分布式数据处理框架 | Apache Spark |
-| 深度学习框架 | TensorFlow / Keras |
+| JDK | 17 |
+| Hadoop | 3.5.0 |
+| Apache Spark | 4.2.1 |
+| TensorFlow | 2.21.0 |
+| Keras | 3.12.4 |
 | 数据集 | MovieLens 1M |
-| Spark 运行模式 | `local[1]` |
+| Spark 运行模式 | `local[*]` |
 
-具体 Python、Spark、TensorFlow 等软件版本以实际环境中的安装记录为准，不在此处推测填写。
+Python 及相关依赖通过项目根目录下的 `environment.yml` 进行配置。JDK、Hadoop 和 Windows 下的 `winutils.exe` 需要单独安装和配置。
+
+上述版本为当前开发环境使用的版本，建议组员尽量保持一致，以减少环境差异导致的运行问题。
 
 ### 1.3 项目目录结构
 
@@ -69,6 +76,8 @@ repository/
 - `spark_output.parquet`：保存 Spark 端预处理后的数据。
 - `preprocessing_model.keras`：保存从 Spark Pipeline 转换得到的 Keras 模型。
 
+注：reproduction/outputs/ 中的文件为项目运行后生成的实验产物，已加入 .gitignore，不会随 GitHub 仓库下载。组员需要运行主 Pipeline 脚本自行生成。
+
 ## 2. 数据集准备
 
 ### 2.1 MovieLens 1M 数据集
@@ -104,6 +113,34 @@ Action|Adventure|Comedy|Romance
 ```
 
 因此，需要先将其转换为固定长度的字符串数组，再执行逐元素索引。
+
+### 2.3 数据集下载与存放
+
+本项目使用 MovieLens 1M 数据集，组员需要自行下载数据集。
+
+官方下载地址：
+
+https://grouplens.org/datasets/movielens/1m/
+
+下载后解压，将其中的 `users.dat`、`movies.dat` 和 `ratings.dat` 三个文件放入以下目录：
+
+```text
+reproduction/
+├── data/
+│   └── ml-1m/
+│       ├── users.dat
+│       ├── movies.dat
+│       └── ratings.dat
+└── preprocessing/
+    └── movielens_preprocessing.py
+```
+
+注意：
+
+1. 请使用 MovieLens 1M 数据集，不要使用其他版本。
+2. 数据文件必须放置在 `reproduction/data/ml-1m/` 目录下。
+3. `reproduction/data/` 已加入 `.gitignore`，因此数据集不会随 GitHub 仓库一起下载，需要组员自行准备。
+4. 项目通过 `Path(__file__).resolve()` 动态定位数据集目录，不依赖开发者电脑上的固定磁盘路径。
 
 ## 3. Spark 预处理 Pipeline 实现
 
@@ -387,17 +424,61 @@ reproduction/outputs/preprocessing_model.keras
 
 ## 6. 运行与验证
 
-### 6.1 环境激活
+### 6.1 项目获取与环境配置
 
-在 PowerShell 中进入项目目录并激活 Conda 环境：
+首先，从 GitHub 克隆项目：
+
+```powershell
+git clone https://github.com/xielin0720-tech/kamae-reproduction.git
+```
+
+进入项目根目录：
+
+```powershell
+cd .\kamae-reproduction
+```
+
+创建 Conda 环境：
+
+```powershell
+conda env create -f environment.yml
+```
+
+环境创建完成后，激活环境：
 
 ```powershell
 conda activate kamae-repro
-
-cd "E:\2026\1\big data\code\kamae-reproduction\repository"
 ```
 
-### 6.2 执行主 Pipeline
+**注意：**
+
+1. 执行上述命令前，需要确保电脑已经安装 Conda。
+2. `environment.yml` 负责配置 Python 及相关 Python 依赖，不会自动安装 JDK 和 Hadoop。
+3. 运行 Spark 前，需要单独安装 JDK 17，并配置 `JAVA_HOME`。
+4. Windows 环境下还需要准备 Hadoop 相关文件，配置 `HADOOP_HOME`，并确保 Hadoop 的 `bin` 目录中包含 `winutils.exe`。
+5. JDK 和 Hadoop 的安装路径根据组员自己的电脑实际情况配置，不需要与开发者电脑的安装路径相同。
+
+### 6.2 运行环境检查
+
+激活 Conda 环境后，可以通过以下命令检查基础运行环境：
+
+```powershell
+python --version
+java -version
+hadoop version
+```
+
+其中：
+
+- `python --version`：检查 Python 版本是否为 3.10。
+- `java -version`：检查 JDK 是否正确安装。
+- `hadoop version`：检查 Hadoop 是否能够正常运行。
+
+如果上述命令无法正常执行，应先检查 Conda 环境、`JAVA_HOME`、`HADOOP_HOME` 和系统 `Path` 环境变量配置。
+
+确认 MovieLens 数据集已放置在指定目录后，再执行后续 Pipeline。
+
+### 6.3 执行主 Pipeline
 
 运行：
 
@@ -416,7 +497,7 @@ python .\reproduction\scripts\run_movielens_pipeline.py
 7. 构建 Keras 预处理模型。
 8. 保存 Keras 模型。
 
-### 6.3 执行 Parity 验证
+### 6.4 执行 Parity 验证
 
 运行：
 
@@ -434,7 +515,9 @@ PASS: All four preprocessing outputs match.
 
 该结果说明，在当前验证脚本所使用的数据和测试条件下，Spark 与 Keras 两端的四项预处理结果一致。
 
-### 6.4 验证结论
+*****注：这个检验脚本只检验了128条数据 全部数据的检验要靠C同学完成！！！！！！！！！
+
+### 6.5 验证结论
 
 本次复现已完成以下验证：
 
@@ -443,7 +526,7 @@ PASS: All four preprocessing outputs match.
 - 五个预处理阶段均能够正常执行。
 - Genres 词表能够按照 frequencyDesc 生成。
 - Keras 预处理模型能够成功构建和保存。
-- Spark 与 Keras 的四项预处理输出通过一致性验证。
+- Spark 与 Keras 的四项预处理输出通过一致性验证（128条）。
 - 最终输入 shape 已与论文 Listing 1 对齐。
 
 ## 7. 最终产物
