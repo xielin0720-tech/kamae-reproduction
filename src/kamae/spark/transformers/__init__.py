@@ -96,3 +96,5 @@ from .sum import SumTransformer  # noqa: F401
 from .unix_timestamp_to_date_time import (  # noqa: F401
     UnixTimestampToDateTimeTransformer,
 )
+
+from .array_string_index import ArrayStringIndexTransformer  # noqa: F401
